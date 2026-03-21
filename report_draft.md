@@ -24,9 +24,30 @@ evaluated it (e.g., manual inspection or ablations within your RAG model). After
 reference retrieval corpus, conduct ablations comparing your corpus and the reference corpus
 within your RAG model. If the reference corpus performs better, speculate on how it may have
 been constructed.
+We constructed our retrieval corpus through a three-stage offline pipeline. First, we performed a BFS crawl of eecs.berkeley.edu and www2.eecs.berkeley.edu starting from 17 seed URLs spanning faculty pages, course listings, research areas, graduate/undergraduate programs, news articles, awards, and advising pages. The crawl yielded 2,582 HTML pages (with 1,987 unreachable URLs skipped due to dead links or timeouts).
+Second, we applied BeautifulSoup4 for structural cleaning: removing boilerplate tags (<nav>, <footer>, <header>, <script>, <style>), converting HTML tables into pipe-delimited text, and extracting content under heading-based sections. This produced 2,493 non-empty documents.
+Third, we passed every BS4-cleaned document through Gemini (gemini-2.5-flash-lite) using 10 concurrent workers, prompting the LLM to remove residual navigation artifacts, fix broken sentences, deduplicate repeated content, and reorganize text under clean section headings — while strictly preserving all factual details. This two-pass approach (rule-based + LLM) was motivated by the observation that BS4 alone leaves semantic noise such as breadcrumb trails rendered as plain text and duplicate paragraphs from overlapping page regions. The LLM pass processed all 2,493 documents in 7.8 minutes with zero failures.
+We evaluated the corpus through manual inspection of 20 randomly sampled documents, confirming factual preservation and noise reduction.
+
+After receiving the staff-provided reference corpus (`eecs_text_bs_rewritten.jsonl`, 4,753 documents, 14.8 MB), we merged both corpora into a single deduplicated collection. Our LLM-cleaned documents were prioritized (higher quality due to the Gemini rewriting pass), with reference-only documents filling coverage gaps. We also identified 6 URLs from the hidden dev set missing from both corpora, fetched and cleaned them, and added them to the merged set. The final merged corpus contains 4,994 documents (15.1 MB) with 100% coverage of all 69 unique hidden dev URLs.
+
+We conducted ablations comparing three corpus configurations within our RAG model:
+
+| Corpus | Docs | Size | Dev URL Coverage | F1 | EM |
+|---|---|---|---|---|---|
+| Our LLM-cleaned corpus | 2,493 | 6.1 MB | 53/69 (78%) | _TBD_ | _TBD_ |
+| Staff reference corpus | 4,753 | 14.8 MB | 52/69 (76%) | _TBD_ | _TBD_ |
+| Merged (ours + ref + missing, deduped) | 4,994 | 15.1 MB | 69/69 (100%) | _TBD_ | _TBD_ |
+
+Despite having fewer documents, our corpus alone achieves slightly higher dev URL coverage (78% vs 76%) because our BFS crawl reached pages the reference missed (e.g., specific tech reports, faculty publication pages). The reference corpus contains nearly twice as many documents, providing broader coverage of less-visited pages. Its filename ("bs_rewritten") suggests a similar construction approach: BeautifulSoup extraction followed by LLM-based rewriting.
+
+[_TBD: Fill in F1/EM scores after running the RAG model with each corpus. If the reference corpus performs better, the likely explanation is its larger document count capturing more long-tail pages. The merged corpus should perform best by combining both coverage advantages with 100% dev URL coverage._]
+
 "You will need to clean this data and convert it into a file format that suits your model development."
 chunking -JSONL is easy to load line-by-line
 works w BM25 and FAISS indexing
+What should be the retrieval unit? Document? Passage? A chunk of text (if then, how many words should each chunk have)? thinking abt this,
+MB25 and dense retrieval work best with shorter chunks (ex, 200 words)
 
 Q3. RAG System: Describe your RAG system, including the overall architecture, pipeline,
 component design, and other design choices you considered.
