@@ -36,7 +36,7 @@ def main():
             tokenized.append(tokenize(text))
 
     if not docs:
-        raise RuntimeError("No corpus docs found in data/corpus.jsonl")
+        raise RuntimeError("No corpus docs found in data/chunks.jsonl")
 
     bm25 = BM25Okapi(tokenized)
     out_path.parent.mkdir(parents=True, exist_ok=True)
